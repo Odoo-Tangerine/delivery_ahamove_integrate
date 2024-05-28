@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_delivery_carrier_form_with_provider_ahamove" model="ir.ui.view">
+        <field name="name">delivery.carrier.form.provider.ahamove</field>
+        <field name="model">delivery.carrier</field>
+        <field name="inherit_id" ref="tangerine_delivery_base.view_delivery_carrier_form_with_provider_delivery_base"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('api_config_group')]" position='after'>
+                <field name="ahamove_partner_name" invisible="delivery_type != 'ahamove'"/>
+                <field name="ahamove_partner_phone" widget="phone" invisible="delivery_type != 'ahamove'"/>
+            </xpath>
+            <xpath expr="//field[@name='access_token']" position="before">
+                <field name="ahamove_api_key" widget="CopyClipboardChar" invisible="delivery_type != 'ahamove'"/>
+                <field name="ahamove_refresh_token" widget="CopyClipboardChar" invisible="delivery_type != 'ahamove'"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
