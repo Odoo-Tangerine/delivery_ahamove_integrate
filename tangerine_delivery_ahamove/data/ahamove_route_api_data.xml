@@ -16,6 +16,7 @@
             <field name="code">estimate_order</field>
             <field name="route">/v1/order/estimated_fee</field>
             <field name="method">GET</field>
+            <field name="is_need_access_token" eval="True"/>
             <field name="headers">'{"Cache-Control": "no-cache"}'</field>
         </record>
 
@@ -25,6 +26,7 @@
             <field name="code">create_order</field>
             <field name="route">/v1/order/create</field>
             <field name="method">GET</field>
+            <field name="is_need_access_token" eval="True"/>
             <field name="headers">'{"Cache-Control": "no-cache"}'</field>
         </record>
 
@@ -34,15 +36,7 @@
             <field name="code">cancel_order</field>
             <field name="route">/v1/order/cancel</field>
             <field name="method">GET</field>
-            <field name="headers">'{"Cache-Control": "no-cache"}'</field>
-        </record>
-
-        <record id="city_sync_route_code" model="delivery.route.api">
-            <field name="provider_id" ref="tangerine_delivery_ahamove.tangerine_delivery_ahamove_provider" />
-            <field name="name">City Synchronous</field>
-            <field name="code">city_sync</field>
-            <field name="route">/v1/order/cities?country_id=VN</field>
-            <field name="method">GET</field>
+            <field name="is_need_access_token" eval="True"/>
             <field name="headers">'{"Cache-Control": "no-cache"}'</field>
         </record>
 
@@ -52,6 +46,7 @@
             <field name="code">service_sync</field>
             <field name="route">/v1/order/service_types</field>
             <field name="method">GET</field>
+            <field name="is_need_access_token" eval="True"/>
             <field name="headers">'{"Cache-Control": "no-cache"}'</field>
         </record>
     </data>

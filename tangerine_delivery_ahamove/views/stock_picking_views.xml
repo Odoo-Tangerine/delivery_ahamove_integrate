@@ -5,7 +5,7 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="tangerine_delivery_base.view_picking_withcarrier_out_form_inherit_delivery_base"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='cash_on_delivery']" position="before">
+            <xpath expr="//field[@name='promo_code']" position="before">
                 <field name="ahamove_service_request_domain" invisible="1"/>
                 <field name="ahamove_service_id"
                        required="delivery_type == 'ahamove'"

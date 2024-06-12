@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
+from enum import Enum
 from typing import Final
-from pydantic_settings import BaseSettings
 
 
-class settings(BaseSettings):
+class settings(Enum):
     domain_staging: Final[str] = 'https://apistg.ahamove.com'
     domain_production: Final[str] = 'https://api.ahamove.com'
     tracking_url_staging: Final[str] = 'https://cloudstg.ahamove.com'
@@ -24,5 +24,7 @@ class settings(BaseSettings):
     ]
     default_payment_method: Final[str] = 'BALANCE'
 
-    list_status_cancellation_allowed: Final[str] = ['IN PROCESS', 'CANCELED', 'COMPLETED']
+    list_status_cancellation_allowed: Final[str] = ['ASSIGNING', 'ACCEPTED', 'CONFIRMING', 'PAYING', 'IDLE']
     status_completed: Final[str] = 'COMPLETED'
+    cancel_reason: Final[str] = 'Merchant asks for order cancellation'
+    cancel_reason_code: Final[str] = 'partner_merchant_asks_for_order_cancellation'

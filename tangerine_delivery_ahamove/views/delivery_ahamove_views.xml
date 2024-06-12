@@ -13,6 +13,16 @@
                 <field name="ahamove_api_key" widget="CopyClipboardChar" invisible="delivery_type != 'ahamove'"/>
                 <field name="ahamove_refresh_token" widget="CopyClipboardChar" invisible="delivery_type != 'ahamove'"/>
             </xpath>
+            <xpath expr="//field[@name='default_promo_code']" position='after'>
+                <field name="default_ahamove_service_id" invisible="delivery_type != 'ahamove'"/>
+                <field name="default_ahamove_service_request_ids"
+                       invisible="delivery_type != 'ahamove'"
+                       domain="ahamove_service_request_domain"
+                       widget="many2many_tags"
+                />
+                <field name="default_ahamove_payment_method" invisible="delivery_type != 'ahamove'"/>
+                <field name="ahamove_service_request_domain" invisible="1"/>
+            </xpath>
         </field>
     </record>
 </odoo>

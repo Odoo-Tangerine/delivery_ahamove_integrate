@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import re
 import time
 import json
 from dataclasses import dataclass
@@ -7,29 +6,19 @@ from odoo import _
 from odoo.exceptions import UserError
 from odoo.tools.safe_eval import safe_eval
 from .connection import Connection
-from odoo.addons.tangerine_delivery_base.settings.utils import URLBuilder
-from ..schemas.ahamove_schemas import (
-    TokenResponse,
-    CitySyncResponse,
-    ServiceSyncResponse,
-    AhamoveEstCostRequest, AhamoveEstCostResponse,
-    AhamoveCreateOrderRequest, AhamoveCreateOrderResponse
-)
+from ..settings.constants import settings
+from odoo.addons.tangerine_delivery_base.settings.utils import URLBuilder, standardization_e164
 
 
 @dataclass
 class Client:
     conn: Connection
 
-    def _payload_get_token(self) -> dict[str, str]:
+    def _payload_get_token(self):
         return {
-            'mobile': self.conn.provider.ahamove_partner_phone,
+            'mobile': standardization_e164(self.conn.provider.ahamove_partner_phone),
             'api_key': self.conn.provider.ahamove_api_key
         }
-
-    @staticmethod
-    def _clean_phone_number(phone):
-        return re.sub('[^0-9]', '', phone)
 
     def _execute(self, route_id, params, is_unquote=True):
         return self.conn.execute_restful(
@@ -43,45 +32,30 @@ class Client:
             method=route_id.method
         )
 
-    def get_access_token(self, route_id) -> TokenResponse:
-        return TokenResponse(**self._execute(
-            route_id=route_id,
-            params=self._payload_get_token(),
-            is_unquote=False
-        ))
+    def get_access_token(self, route_id):
+        return self._execute(route_id=route_id, params=self._payload_get_token(), is_unquote=False)
 
-    def ahamove_city_synchronous(self, route_id) -> CitySyncResponse:
-        return CitySyncResponse(lst_city=self._execute(
-            route_id=route_id,
-            params=None,
-            is_unquote=False
-        ))
-
-    def _param_service_synchronous(self, city_id) -> dict[str, str]:
+    def _param_service_synchronous(self, city_id):
         return {
             'token': self.conn.provider.access_token,
             'user_mobile': self.conn.provider.ahamove_partner_phone,
             'city_id': city_id
         }
 
-    def ahamove_service_synchronous(self, route_id, city_id) -> ServiceSyncResponse:
-        return ServiceSyncResponse(lst_service=self._execute(
-            route_id=route_id,
-            params=self._param_service_synchronous(city_id),
-            is_unquote=False
-        ))
+    def ahamove_service_synchronous(self, route_id, city_id):
+        return self._execute(route_id=route_id, params=self._param_service_synchronous(city_id), is_unquote=False)
 
-    def _param_estimate_order(self, order) -> AhamoveEstCostRequest:
+    def _param_estimate_order(self, order):
         warehouse_id = order.warehouse_id
         service_type = order.env.context.get('ahamove_service')
         request_type = order.env.context.get('ahamove_request')
         promo_code = order.env.context.get('promo_code')
         if not warehouse_id:
             raise UserError(_('The warehouse is required on sale order'))
-        elif not warehouse_id.partner_id.state_id.ahamove_code:
+        elif not warehouse_id.partner_id.state_id.ahamove_province_code:
             raise UserError(_('The ahamove code is not set on warehouse address'))
         elif not service_type:
-            service_type = f'{warehouse_id.partner_id.state_id.ahamove_code}-BIKE'
+            service_type = f'{warehouse_id.partner_id.state_id.ahamove_province_code}-BIKE'
         payload = {
             'token': self.conn.provider.access_token,
             'service_id': service_type,
@@ -93,19 +67,17 @@ class Client:
             'path': [
                 {'address': warehouse_id.partner_id.shipping_address},
                 {'address': order.partner_shipping_id.shipping_address}
-            ]
+            ],
+            'order_time': 0
         }
         if promo_code:
             payload.update({'promo_code': promo_code})
         if request_type:
             payload.update({'requests': [{'_id': code, 'num': 1} for code in request_type]})
-        return AhamoveEstCostRequest(**payload)
+        return payload
 
     def estimate_order_fee(self, route_id, order):
-        return AhamoveEstCostResponse(**self._execute(
-            route_id=route_id,
-            params=self._param_estimate_order(order).model_dump()
-        ))
+        return self._execute(route_id=route_id, params=self._param_estimate_order(order))
 
     def _param_create_order(self, picking):
         payload = {
@@ -115,13 +87,13 @@ class Client:
                 {
                     'address': picking.picking_type_id.warehouse_id.partner_id.shipping_address,
                     'name': picking.picking_type_id.warehouse_id.partner_id.name,
-                    'mobile': picking.picking_type_id.warehouse_id.partner_id.phone or picking.picking_type_id.warehouse_id.partner_id.mobile,
+                    'mobile': standardization_e164(picking.picking_type_id.warehouse_id.partner_id.mobile),
                     'tracking_number': picking.name
                 },
                 {
                     'address': picking.partner_id.shipping_address,
                     'name': picking.partner_id.name,
-                    'mobile': picking.partner_id.phone or picking.partner_id.mobile
+                    'mobile': standardization_e164(picking.partner_id.mobile)
                 },
             ],
             'service_id': picking.ahamove_service_id.code,
@@ -129,37 +101,37 @@ class Client:
                 '_id': rec.code,
                 'num': 1,
             } for rec in picking.ahamove_service_request_ids],
-
             'payment_method': picking.ahamove_payment_method,
             'items': [
                 {
-                    '_id': package.product_id.default_code,
-                    'num': package.quantity,
-                    'name': package.product_id.name,
-                    'price': package.product_id.list_price * package.quantity
-                } for package in picking.move_line_ids_without_package
+                    '_id': line.product_id.id,
+                    'num': line.quantity,
+                    'name': line.product_id.name,
+                    'price': line.product_id.list_price * line.quantity
+                } for line in picking.move_line_ids_without_package
             ]
         }
         if picking.cash_on_delivery and picking.cash_on_delivery_amount > 0.0:
-            payload['path'][1].update({'cod': picking.cash_on_delivery_amount})
+            payload['path'][1]['cod'] = picking.cash_on_delivery_amount
         if picking.schedule_order:
-            start_timestamp = int(time.mktime(picking.schedule_pickup_time_from.timetuple()))
-            end_timestamp = int(time.mktime(picking.schedule_pickup_time_to.timetuple()))
-            payload['order_time'] = end_timestamp - start_timestamp
+            payload['order_time'] = int(time.mktime(picking.schedule_pickup_time_to.timetuple()))
+            payload['idle_until'] = int(time.mktime(picking.schedule_pickup_time_to.timetuple()))
         if picking.remarks:
-            payload.update({'remarks': picking.remarks})
+            payload['remarks'] = picking.remarks
         if picking.promo_code:
-            payload.update({'promo_code': picking.promo_code})
-        return AhamoveCreateOrderRequest(**payload)
+            payload['promo_code'] = picking.promo_code
+        return payload
 
     def create_order(self, route_id, picking):
-        return AhamoveCreateOrderResponse(**self._execute(
-            route_id=route_id,
-            params=self._param_create_order(picking).model_dump(exclude_none=True)
-        ))
+        return self._execute(route_id=route_id, params=self._param_create_order(picking))
 
     def _param_cancel_shipment(self, order):
-        return {'token': self.conn.provider.access_token, 'order_id': order}
+        return {
+            'token': self.conn.provider.access_token,
+            'order_id': order,
+            'comment': settings.cancel_reason.value,
+            'cancel_code': settings.cancel_reason_code.value
+        }
 
     def cancel_order(self, route_id, order):
         self._execute(route_id=route_id, params=self._param_cancel_shipment(order))

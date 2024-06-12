@@ -2,38 +2,37 @@ from odoo.tools import ustr
 from odoo.http import request, Controller, route
 from odoo.addons.tangerine_delivery_base.settings.utils import validate_api_key, response
 from odoo.addons.tangerine_delivery_base.settings.status import status
-from ..schemas.ahamove_schemas import TrackingWebhookRequest
 
 
 class DeliveriesController(Controller):
     @validate_api_key
-    @route('/api/v1/ahamove/webhook', type='json', auth='public', methods=['POST'])
+    @route('/api/v1/webhook/ahamove', type='json', auth='public', methods=['POST'])
     def ahamove_callback(self):
         try:
-            body = TrackingWebhookRequest(**request.dispatcher.jsonrequest)
+            body = request.dispatcher.jsonrequest
             picking_id = request.env['stock.picking'].sudo().search([
-                ('carrier_tracking_ref', '=', body._id)
+                ('carrier_tracking_ref', '=', body.get('_id'))
             ])
             if not picking_id:
                 return response(
-                    status=status.HTTP_400_BAD_REQUEST,
-                    message=f'The delivery id {body._id} not found.'
+                    status=status.HTTP_400_BAD_REQUEST.value,
+                    message=f'The delivery id {body.get("_id")} not found.'
                 )
             status_id = request.env['delivery.status'].sudo().search([
-                ('code', '=', body.status),
+                ('code', '=', body.get('status')),
                 ('provider_id', '=', picking_id.carrier_id.id)
             ])
             if not status_id:
                 return response(
-                    status=status.HTTP_400_BAD_REQUEST,
-                    message=f'The status {body.status} does not match my system.'
+                    status=status.HTTP_400_BAD_REQUEST.value,
+                    message=f'The status {body.get("status")} does not match partner system.'
                 )
             payload = {'status_id': status_id.id}
-            if body.driver:
+            if body.get('driver'):
                 payload.update({
-                    'driver_name': body.supplier_name,
-                    'driver_phone': body.supplier_id
+                    'driver_name': body.get('supplier_name'),
+                    'driver_phone': body.get('supplier_id')
                 })
             picking_id.sudo().write(payload)
         except Exception as e:
-            return response(status=status.HTTP_500_INTERNAL_SERVER_ERROR, message=ustr(e))
+            return response(status=status.HTTP_500_INTERNAL_SERVER_ERROR.value, message=ustr(e))

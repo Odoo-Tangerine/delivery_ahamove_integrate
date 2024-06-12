@@ -15,9 +15,6 @@
                     />
                 </header>
             </xpath>
-            <field name="code" position="after">
-                <field name="default_ahamove_service_id"/>
-            </field>
             <xpath expr="//notebook[last()]" position="inside">
                 <page string="Services">
                     <field name="ahamove_service_ids" mode="tree">
